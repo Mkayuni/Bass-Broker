@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -22,11 +23,20 @@ fun StockListScreen(viewModel: StockViewModel) {
     val isLoading by viewModel.isLoading.collectAsState()
     val showAddDialog by viewModel.showAddStockDialog.collectAsState()
     val selectedStock by viewModel.selectedStock.collectAsState()
+    val errorMessage by viewModel.errorMessage.collectAsState()
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Bass Broker") }
+                title = { Text("Bass Broker") },
+                actions = {
+                    IconButton(onClick = { viewModel.refreshStocks() }) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "Refresh"
+                        )
+                    }
+                }
             )
         },
         floatingActionButton = {
@@ -71,6 +81,22 @@ fun StockListScreen(viewModel: StockViewModel) {
                 CircularProgressIndicator(
                     modifier = Modifier.align(Alignment.Center)
                 )
+            }
+
+            // Error message
+            if (errorMessage != null) {
+                Snackbar(
+                    modifier = Modifier
+                        .align(Alignment.BottomCenter)
+                        .padding(16.dp),
+                    action = {
+                        TextButton(onClick = { viewModel.clearError() }) {
+                            Text("Dismiss")
+                        }
+                    }
+                ) {
+                    Text(errorMessage ?: "")
+                }
             }
         }
     }

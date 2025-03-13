@@ -4,12 +4,10 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.mkayuni.bassbroker.api.StockRepository
 import com.mkayuni.bassbroker.model.Stock
-import com.mkayuni.bassbroker.model.StockAlert
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
-import kotlin.random.Random
 
 class StockViewModel : ViewModel() {
 
@@ -22,35 +20,59 @@ class StockViewModel : ViewModel() {
     private val _isLoading = MutableStateFlow(false)
     val isLoading: StateFlow<Boolean> = _isLoading.asStateFlow()
 
+    private val _errorMessage = MutableStateFlow<String?>(null)
+    val errorMessage: StateFlow<String?> = _errorMessage.asStateFlow()
+
     private val _showAddStockDialog = MutableStateFlow(false)
     val showAddStockDialog: StateFlow<Boolean> = _showAddStockDialog.asStateFlow()
 
     private val _selectedStock = MutableStateFlow<Stock?>(null)
     val selectedStock: StateFlow<Stock?> = _selectedStock.asStateFlow()
 
-    // Sample data for now - replace with actual API calls later
+    // Load some sample stocks on initialization
     init {
-        // Load some sample stocks
-        val sampleStocks = listOf(
-            Stock("AAPL", "Apple Inc.", 190.68, 187.25),
-            Stock("MSFT", "Microsoft Corp.", 378.92, 375.54),
-            Stock("GOOGL", "Alphabet Inc.", 142.15, 140.23)
-        )
-        _stocks.value = sampleStocks
+        loadInitialStocks()
+    }
+
+    private fun loadInitialStocks() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val initialSymbols = listOf("AAPL", "MSFT", "GOOGL")
+                val stocksList = mutableListOf<Stock>()
+
+                for (symbol in initialSymbols) {
+                    repository.getStockPrice(symbol).onSuccess { stock ->
+                        stocksList.add(stock)
+                    }
+                }
+
+                _stocks.value = stocksList
+            } catch (e: Exception) {
+                _errorMessage.value = "Failed to load initial stocks: ${e.localizedMessage}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
     }
 
     fun refreshStocks() {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // For each stock in our list, refresh its data
-                val updatedStocks = _stocks.value.map { stock ->
-                    repository.getStockPrice(stock.symbol)
+                val currentSymbols = _stocks.value.map { it.symbol }
+                val updatedStocks = mutableListOf<Stock>()
+
+                for (symbol in currentSymbols) {
+                    repository.getStockPrice(symbol).onSuccess { stock ->
+                        updatedStocks.add(stock)
+                    }
                 }
+
                 _stocks.value = updatedStocks
+                _errorMessage.value = null
             } catch (e: Exception) {
-                // In a real app, you'd handle errors properly
-                e.printStackTrace()
+                _errorMessage.value = "Failed to refresh stocks: ${e.localizedMessage}"
             } finally {
                 _isLoading.value = false
             }
@@ -58,25 +80,25 @@ class StockViewModel : ViewModel() {
     }
 
     fun addStock(symbol: String) {
+        // Check if stock already exists
+        if (_stocks.value.any { it.symbol.equals(symbol, ignoreCase = true) }) {
+            _errorMessage.value = "Stock $symbol is already in your list"
+            return
+        }
+
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                // In a production app, this would fetch from API
-                // For now, create a dummy stock with the symbol
-                val newStock = Stock(
-                    symbol = symbol,
-                    name = "$symbol Corp.", // Placeholder name
-                    currentPrice = 100.0 + Random.nextDouble() * 50,
-                    previousClose = 100.0 + Random.nextDouble() * 50
-                )
-
-                // Add to the existing list
-                val currentStocks = _stocks.value.toMutableList()
-                currentStocks.add(newStock)
-                _stocks.value = currentStocks
+                repository.getStockPrice(symbol).onSuccess { newStock ->
+                    val currentStocks = _stocks.value.toMutableList()
+                    currentStocks.add(newStock)
+                    _stocks.value = currentStocks
+                    _errorMessage.value = null
+                }.onFailure { error ->
+                    _errorMessage.value = "Failed to add $symbol: ${error.localizedMessage}"
+                }
             } catch (e: Exception) {
-                // Handle error
-                e.printStackTrace()
+                _errorMessage.value = "Error adding stock: ${e.localizedMessage}"
             } finally {
                 _isLoading.value = false
             }
@@ -85,7 +107,7 @@ class StockViewModel : ViewModel() {
 
     fun removeStock(symbol: String) {
         val currentStocks = _stocks.value.toMutableList()
-        currentStocks.removeAll { it.symbol == symbol }
+        currentStocks.removeAll { it.symbol.equals(symbol, ignoreCase = true) }
         _stocks.value = currentStocks
     }
 
@@ -103,5 +125,9 @@ class StockViewModel : ViewModel() {
 
     fun hideStockDetailDialog() {
         _selectedStock.value = null
+    }
+
+    fun clearError() {
+        _errorMessage.value = null
     }
 }

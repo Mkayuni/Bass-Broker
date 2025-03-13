@@ -1,12 +1,16 @@
 package com.mkayuni.bassbroker.api
 
-import com.mkayuni.bassbroker.model.Stock
 import retrofit2.http.GET
+import retrofit2.http.Path
 import retrofit2.http.Query
 
 interface StockApiService {
-    @GET("v8/finance/chart/")
-    suspend fun getStockPrice(@Query("symbol") symbol: String): StockResponse
+    @GET("v8/finance/chart/{symbol}")
+    suspend fun getStockPrice(
+        @Path("symbol") symbol: String,
+        @Query("interval") interval: String = "1d",
+        @Query("range") range: String = "1d"
+    ): StockResponse
 }
 
 // Response models
@@ -15,18 +19,32 @@ data class StockResponse(
 )
 
 data class Chart(
-    val result: List<Result>
+    val result: List<Result>? = null,
+    val error: YahooError? = null
+)
+
+data class YahooError(
+    val code: String,
+    val description: String
 )
 
 data class Result(
     val meta: Meta,
+    val timestamp: List<Long>? = null,
     val indicators: Indicators
 )
 
 data class Meta(
+    val currency: String,
+    val symbol: String,
+    val exchangeName: String? = null,
+    val instrumentType: String? = null,
     val regularMarketPrice: Double,
     val previousClose: Double,
-    val symbol: String
+    val gmtoffset: Int? = null,
+    val regularMarketTime: Long? = null,
+    val timezone: String? = null,
+    val exchangeTimezoneName: String? = null
 )
 
 data class Indicators(
@@ -34,5 +52,9 @@ data class Indicators(
 )
 
 data class Quote(
-    val close: List<Double?>
+    val high: List<Double?>? = null,
+    val volume: List<Long?>? = null,
+    val close: List<Double?>? = null,
+    val low: List<Double?>? = null,
+    val open: List<Double?>? = null
 )
