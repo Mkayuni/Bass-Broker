@@ -2,13 +2,14 @@ package com.mkayuni.bassbroker.service
 
 import com.mkayuni.bassbroker.api.StockApiService
 import com.mkayuni.bassbroker.model.Stock
+import com.mkayuni.bassbroker.viewmodel.StockViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.io.IOException
 
-class StockRepository {
+class StockRepository(private val viewModel: StockViewModel? = null) {
     private val apiService: StockApiService
 
     init {
@@ -23,9 +24,6 @@ class StockRepository {
     suspend fun getStockPrice(symbol: String): kotlin.Result<Stock> = withContext(Dispatchers.IO) {
         try {
             val response = apiService.getStockPrice(symbol)
-
-            // Also get historical data to ensure accurate previous close
-            val historicalResponse = apiService.getHistoricalData(symbol)
 
             if (response.chart.error != null) {
                 return@withContext kotlin.Result.failure(
@@ -42,6 +40,11 @@ class StockRepository {
             // Get accurate previous close from historical data
             val quotes = result.indicators.quote.firstOrNull()
             val closePrices = quotes?.close?.filterNotNull()
+
+            // Update price history in ViewModel if available
+            if (!closePrices.isNullOrEmpty()) {
+                viewModel?.updatePriceHistory(symbol, closePrices)
+            }
 
             // Use historical data for previous close if available
             val previousClosePrice = if (!closePrices.isNullOrEmpty() && closePrices.size > 1) {

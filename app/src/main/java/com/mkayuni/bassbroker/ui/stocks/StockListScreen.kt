@@ -121,11 +121,15 @@ fun StockListScreen(viewModel: StockViewModel) {
 
     // Stock Detail Dialog
     if (selectedStock != null) {
+        val stock = selectedStock!!
+        val prices = viewModel.priceHistory.collectAsState().value[stock.symbol] ?: emptyList()
+
         StockDetailDialog(
-            stock = selectedStock!!,
+            stock = stock,
+            priceHistory = prices,  // Add this line
             onDismiss = { viewModel.hideStockDetailDialog() },
             onRemove = {
-                viewModel.removeStock(selectedStock!!.symbol)
+                viewModel.removeStock(stock.symbol)
                 viewModel.hideStockDetailDialog()
             },
             onSetHighAlert = { viewModel.showHighAlertConfig(it) },
@@ -238,6 +242,7 @@ fun AddStockDialog(
 @Composable
 fun StockDetailDialog(
     stock: Stock,
+    priceHistory: List<Double>,
     onDismiss: () -> Unit,
     onRemove: () -> Unit,
     onSetHighAlert: (Stock) -> Unit,
@@ -248,6 +253,13 @@ fun StockDetailDialog(
         title = { Text("${stock.symbol} - ${stock.name}") },
         text = {
             Column(modifier = Modifier.padding(8.dp)) {
+                // Add chart at the top
+                if (priceHistory.isNotEmpty()) {
+                    Text("Price History", style = MaterialTheme.typography.titleMedium)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    StockPriceChart(priceHistory = priceHistory)
+                    Spacer(modifier = Modifier.height(16.dp))
+                }
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()

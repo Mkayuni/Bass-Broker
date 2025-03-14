@@ -28,6 +28,7 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
     private val newsRepository = NewsRepository()
     private val marketHoursService = MarketHoursService()
     private val soundPlayer = SoundPlayer(application)
+    private val repository = StockRepository(this)
 
 
     // State flows for UI updates
@@ -64,6 +65,16 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
     // Store sound selections for alerts
     private val _alertSounds = MutableStateFlow<Map<String, Map<Boolean, SoundType>>>(emptyMap())
     val alertSounds: StateFlow<Map<String, Map<Boolean, SoundType>>> = _alertSounds.asStateFlow()
+
+    // Add to StockViewModel
+    private val _priceHistory = MutableStateFlow<Map<String, List<Double>>>(emptyMap())
+    val priceHistory: StateFlow<Map<String, List<Double>>> = _priceHistory.asStateFlow()
+
+    fun updatePriceHistory(symbol: String, prices: List<Double>) {
+        _priceHistory.value = _priceHistory.value.toMutableMap().apply {
+            put(symbol, prices)
+        }
+    }
 
     private val _showAlertConfigDialog = MutableStateFlow(false)
     val showAlertConfigDialog: StateFlow<Boolean> = _showAlertConfigDialog.asStateFlow()
