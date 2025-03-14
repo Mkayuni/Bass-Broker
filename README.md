@@ -183,6 +183,5 @@ com.mkayuni.bassbroker/
   **Bass Broker** - *Feel the Market* - Developed by Moses Kayuni
   
   [![GitHub](https://img.shields.io/badge/GitHub-mkayuni-blue?logo=github)](https://github.com/mkayuni)
-  [![LinkedIn](https://img.shields.io/badge/LinkedIn-malikkayuni-blue?logo=linkedin)](https://linkedin.com/in/malikkayuni)
   
 </div>
