@@ -1,57 +1,212 @@
-Bass Broker: Stock Monitoring Application
-Overview
-Bass Broker is a real-time stock monitoring application for Android that provides audio cues for stock price movements. This personal project transforms financial data tracking into an auditory experience where different bass sounds correspond to stock market events, allowing users to passively monitor their portfolios while focusing on other tasks.
-Technologies & Architecture
+# Bass Broker 🎵📈
 
-Kotlin with Coroutines for asynchronous operations
-Jetpack Compose for modern declarative UI
-MVVM (Model-View-ViewModel) architecture with unidirectional data flow
-Retrofit2 for REST API communications
-DataStore for persistent preferences storage
-Canvas API for custom financial chart visualization
-Android WorkManager for background processing
-ThreeTenABP for advanced date-time handling
-Foreground Service implementation for continuous monitoring
+<div align="center">
+  
+  ![Bass Broker Logo](app/src/main/res/mipmap-xxxhdpi/ic_launcher.png)
+  
+  [![Kotlin](https://img.shields.io/badge/Kotlin-1.8.10-blue.svg)](https://kotlinlang.org)
+  [![Compose](https://img.shields.io/badge/Jetpack%20Compose-Latest-green.svg)](https://developer.android.com/jetpack/compose)
+  [![License](https://img.shields.io/badge/License-MIT-orange.svg)](LICENSE)
+  
+  *Listen to your stocks. Feel the market.*
+</div>
 
-Core Features
+## 📱 Overview
 
-Real-time stock price monitoring via Yahoo Finance API
-Historical price data visualization with interactive charts
-Custom high/low price threshold alerts with sound notifications
-Configurable sound profiles for different market conditions
-Background monitoring that persists across app restarts
-Price prediction with confidence intervals for forward-looking analysis
+Bass Broker transforms how you monitor the stock market by translating price movements into immersive bass sounds. This innovative Android application allows you to passively track your investments through audio cues, keeping you informed while you focus on other tasks.
 
-Technical Implementation Highlights
+<div align="center">
+  <table>
+    <tr>
+      <td><img src="screenshots/stock_list.png" width="200"/></td>
+      <td><img src="screenshots/chart_detail.png" width="200"/></td>
+      <td><img src="screenshots/prediction.png" width="200"/></td>
+    </tr>
+    <tr>
+      <td align="center"><b>Stock Dashboard</b></td>
+      <td align="center"><b>Interactive Charts</b></td>
+      <td align="center"><b>Prediction Analysis</b></td>
+    </tr>
+  </table>
+</div>
 
-API Integration: Implemented a robust repository pattern to handle API responses with Kotlin's Result type for elegant error handling
-Background Processing: Utilized WorkManager to schedule periodic stock price checks to minimize battery consumption
-Reactive UI: Employed StateFlow for reactive UI updates based on real-time data changes
-Sound Pattern Recognition: Developed algorithms to detect market patterns (breakouts, breakdowns, trends) and trigger corresponding audio signals
-Fallback Mechanisms: Implemented graceful fallbacks for handling network disruptions and API limitations
-Predictive Analytics: Created a statistical prediction model to forecast price movements with visual confidence intervals
+## ✨ Key Features
 
-Advanced Prediction System
+- **Audio Stock Monitoring**: Distinctive bass sounds indicate market events
+- **Real-time Tracking**: Live data from Yahoo Finance API
+- **Interactive Visualizations**: Custom Compose Canvas-based charts
+- **Smart Alerts**: Configurable threshold notifications
+- **Predictive Analytics**: Statistical forecasting with confidence intervals
+- **Background Processing**: Continuous monitoring even when the app is closed
 
-Time-Series Forecasting: Implemented a custom statistical model to predict future price movements
-Statistical Analysis: Uses weighted trend calculation, volatility assessment, and momentum indicators
-Confidence Visualization: Provides visual representation of prediction confidence as shaded areas
-Audio Feedback: Different bass tones indicate prediction strength and direction
-Adaptive Intervals: Confidence intervals automatically adjust based on historical volatility
+## 🧠 Predictive Analytics Engine
 
-Performance Considerations
+Bass Broker incorporates an advanced prediction system to forecast potential price movements:
 
-Optimized API calls using a 5-day range to obtain accurate historical data while minimizing request frequency
-Implemented efficient data transformation pipelines to process financial timeseries
-Used sparse arrays for handling time-series data to minimize memory footprint
-Designed lightweight prediction algorithms for on-device processing without external dependencies
+```kotlin
+fun predictPrices(historicalPrices: List<Double>, daysToPredict: Int = 5): PredictionResult {
+    // Get recent trend (weighted toward recent prices)
+    val trend = calculateWeightedTrend(recentPrices)
+    
+    // Calculate volatility and momentum
+    val volatility = calculateVolatility(recentPrices)
+    val momentum = calculateMomentum(recentPrices)
+    
+    // Generate predictions with confidence intervals
+    // ...
+}
+```
 
-Future Enhancements
+<div align="center">
+  <img src="screenshots/prediction_detail.png" width="400"/>
+  <p><i>Price prediction with confidence intervals visualized</i></p>
+</div>
 
-Integration with additional financial data sources
-Advanced pattern recognition for technical analysis indicators
-Enhanced machine learning models for more accurate price predictions
-Customizable widget for home screen monitoring
+## 🛠️ Technologies & Architecture
 
-Note
-This is a personal project developed to track a small set of securities in my investment portfolio. The application is not intended for commercial use and is primarily a showcase of technical skills in Android development, real-time data processing, and user experience design.
+| Category | Technologies |
+|----------|--------------|
+| **Frontend** | Jetpack Compose, Material 3 Design |
+| **Backend** | Kotlin Coroutines, Flow, StateFlow |
+| **Architecture** | MVVM, Repository Pattern, Use Cases |
+| **Networking** | Retrofit2, OkHttp3, Kotlin Serialization |
+| **Persistence** | DataStore, Room (planned) |
+| **Async Processing** | WorkManager, Foreground Services |
+| **Visualization** | Compose Canvas, Custom Chart Implementations |
+| **Audio** | MediaPlayer, Custom Sound Processing |
+
+## 📊 Technical Implementation
+
+### Advanced Sound Pattern Recognition
+
+Bass Broker employs sophisticated algorithms to translate market patterns into distinctive audio cues:
+
+```kotlin
+when {
+    PatternDetector.isBreakoutPattern(stock, prices) -> 
+        soundPlayer.playBreakoutSound()
+    PatternDetector.isBreakdownPattern(stock, prices) -> 
+        soundPlayer.playBreakdownSound()
+    PatternDetector.isBullishTrend(prices) -> 
+        soundPlayer.playBullishSound()
+    PatternDetector.isBearishTrend(prices) -> 
+        soundPlayer.playBearishSound()
+}
+```
+
+### Custom Visualization Engine
+
+The app features a bespoke chart rendering system built with Compose Canvas:
+
+```kotlin
+Canvas(modifier = Modifier.fillMaxSize()) {
+    // Draw baseline
+    // Draw price line
+    drawPath(
+        path = path,
+        color = Color.Blue,
+        style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
+    )
+    
+    // Draw prediction with confidence
+    if (showPrediction) {
+        drawPath(
+            path = predictionPath,
+            color = Color.Red,
+            style = Stroke(
+                width = 2.dp.toPx(),
+                pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 5f))
+            )
+        )
+        
+        // Draw confidence interval
+        drawPath(
+            path = confidencePath,
+            color = Color.Red.copy(alpha = 0.15f)
+        )
+    }
+}
+```
+
+## 🚀 Getting Started
+
+### Prerequisites
+
+- Android Studio Arctic Fox or newer
+- Android SDK 24+
+- Kotlin 1.8.10+
+
+### Building the Project
+
+1. Clone the repository
+```bash
+git clone https://github.com/yourusername/bass-broker.git
+```
+
+2. Open in Android Studio
+
+3. Configure your API keys (for Yahoo Finance)
+```kotlin
+// Create local.properties with:
+API_KEY=your_api_key_here
+```
+
+4. Build and run the app
+
+## 📱 App Architecture
+
+```
+com.mkayuni.bassbroker/
+├── alerts/             # Alert management
+├── api/                # API interfaces and models
+├── model/              # Data models and entities
+├── service/            # Background services
+│   ├── StockRepository.kt
+│   ├── NewsRepository.kt
+│   ├── PricePredictionService.kt
+│   └── MarketHoursService.kt
+├── ui/                 # UI components
+│   ├── stocks/         # Stock-related screens
+│   └── theme/          # Theme and styling
+├── util/               # Utility classes
+│   ├── SoundPlayer.kt  # Audio handling
+│   └── PatternDetector.kt
+└── viewmodel/          # ViewModel classes
+```
+
+## ⚡ Performance Optimizations
+
+- **Efficient API usage**: Batched requests to minimize network calls
+- **Memory management**: Use of sparse arrays for time-series data
+- **Battery considerations**: Adaptive update frequencies based on market hours
+- **UI performance**: Custom draw logic optimizations for smooth 60fps animations
+
+## 🔮 Future Enhancements
+
+- [ ] Additional data sources integration
+- [ ] Machine learning model for enhanced predictions
+- [ ] Portfolio performance analytics
+- [ ] Custom widgets for home screen
+- [ ] Social sharing features
+- [ ] Watchlist categorization
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgements
+
+- [Yahoo Finance API](https://www.yahoofinanceapi.com/) for market data
+- [Jetpack Compose](https://developer.android.com/jetpack/compose) for modern UI
+- [Kotlin Coroutines](https://kotlinlang.org/docs/coroutines-overview.html) for async programming
+
+---
+
+<div align="center">
+  
+  **Bass Broker** - *Feel the Market* - Developed by Malik Kayuni
+  
+  [![GitHub](https://img.shields.io/badge/GitHub-mkayuni-blue?logo=github)](https://github.com/mkayuni)
+  [![LinkedIn](https://img.shields.io/badge/LinkedIn-malikkayuni-blue?logo=linkedin)](https://linkedin.com/in/malikkayuni)
+  
+</div>
