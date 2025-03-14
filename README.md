@@ -6,7 +6,6 @@
   
   [![Kotlin](https://img.shields.io/badge/Kotlin-1.8.10-blue.svg)](https://kotlinlang.org)
   [![Compose](https://img.shields.io/badge/Jetpack%20Compose-Latest-green.svg)](https://developer.android.com/jetpack/compose)
-  [![License](https://img.shields.io/badge/License-MIT-orange.svg)](LICENSE)
   
   *Listen to your stocks. Feel the market.*
 </div>
