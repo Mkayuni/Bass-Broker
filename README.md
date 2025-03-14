@@ -11,24 +11,9 @@
   *Listen to your stocks. Feel the market.*
 </div>
 
-## 📱 Overview
+## Overview
 
 Bass Broker transforms how you monitor the stock market by translating price movements into immersive bass sounds. This innovative Android application allows you to passively track your investments through audio cues, keeping you informed while you focus on other tasks.
-
-<div align="center">
-  <table>
-    <tr>
-      <td><img src="screenshots/stock_list.png" width="200"/></td>
-      <td><img src="screenshots/chart_detail.png" width="200"/></td>
-      <td><img src="screenshots/prediction.png" width="200"/></td>
-    </tr>
-    <tr>
-      <td align="center"><b>Stock Dashboard</b></td>
-      <td align="center"><b>Interactive Charts</b></td>
-      <td align="center"><b>Prediction Analysis</b></td>
-    </tr>
-  </table>
-</div>
 
 ## ✨ Key Features
 
@@ -39,7 +24,7 @@ Bass Broker transforms how you monitor the stock market by translating price mov
 - **Predictive Analytics**: Statistical forecasting with confidence intervals
 - **Background Processing**: Continuous monitoring even when the app is closed
 
-## 🧠 Predictive Analytics Engine
+##  Predictive Analytics Engine
 
 Bass Broker incorporates an advanced prediction system to forecast potential price movements:
 
@@ -57,12 +42,7 @@ fun predictPrices(historicalPrices: List<Double>, daysToPredict: Int = 5): Predi
 }
 ```
 
-<div align="center">
-  <img src="screenshots/prediction_detail.png" width="400"/>
-  <p><i>Price prediction with confidence intervals visualized</i></p>
-</div>
-
-## 🛠️ Technologies & Architecture
+## Technologies & Architecture
 
 | Category | Technologies |
 |----------|--------------|
@@ -75,7 +55,7 @@ fun predictPrices(historicalPrices: List<Double>, daysToPredict: Int = 5): Predi
 | **Visualization** | Compose Canvas, Custom Chart Implementations |
 | **Audio** | MediaPlayer, Custom Sound Processing |
 
-## 📊 Technical Implementation
+## Technical Implementation
 
 ### Advanced Sound Pattern Recognition
 
@@ -128,7 +108,7 @@ Canvas(modifier = Modifier.fillMaxSize()) {
 }
 ```
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Prerequisites
 
@@ -153,7 +133,7 @@ API_KEY=your_api_key_here
 
 4. Build and run the app
 
-## 📱 App Architecture
+##  App Architecture
 
 ```
 com.mkayuni.bassbroker/
@@ -174,14 +154,14 @@ com.mkayuni.bassbroker/
 └── viewmodel/          # ViewModel classes
 ```
 
-## ⚡ Performance Optimizations
+## Performance Optimizations
 
 - **Efficient API usage**: Batched requests to minimize network calls
 - **Memory management**: Use of sparse arrays for time-series data
 - **Battery considerations**: Adaptive update frequencies based on market hours
 - **UI performance**: Custom draw logic optimizations for smooth 60fps animations
 
-## 🔮 Future Enhancements
+## Future Enhancements
 
 - [ ] Additional data sources integration
 - [ ] Machine learning model for enhanced predictions
@@ -189,10 +169,6 @@ com.mkayuni.bassbroker/
 - [ ] Custom widgets for home screen
 - [ ] Social sharing features
 - [ ] Watchlist categorization
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgements
 
@@ -204,7 +180,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 <div align="center">
   
-  **Bass Broker** - *Feel the Market* - Developed by Malik Kayuni
+  **Bass Broker** - *Feel the Market* - Developed by Moses Kayuni
   
   [![GitHub](https://img.shields.io/badge/GitHub-mkayuni-blue?logo=github)](https://github.com/mkayuni)
   [![LinkedIn](https://img.shields.io/badge/LinkedIn-malikkayuni-blue?logo=linkedin)](https://linkedin.com/in/malikkayuni)
