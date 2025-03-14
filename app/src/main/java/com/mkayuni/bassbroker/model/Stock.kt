@@ -12,5 +12,9 @@ data class Stock(
         get() = currentPrice - previousClose
 
     val percentChange: Double
-        get() = (priceChange / previousClose) * 100
+        get() = if (previousClose > 0) {
+            (priceChange / previousClose) * 100
+        } else {
+            0.0 // Default to 0% if previous close is zero
+        }
 }

@@ -1,5 +1,6 @@
-package com.mkayuni.bassbroker.api
+package com.mkayuni.bassbroker.service
 
+import com.mkayuni.bassbroker.api.StockApiService
 import com.mkayuni.bassbroker.model.Stock
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -23,6 +24,9 @@ class StockRepository {
         try {
             val response = apiService.getStockPrice(symbol)
 
+            // Also get historical data to ensure accurate previous close
+            val historicalResponse = apiService.getHistoricalData(symbol)
+
             if (response.chart.error != null) {
                 return@withContext kotlin.Result.failure(
                     IOException("API Error: ${response.chart.error.description}")
@@ -33,12 +37,29 @@ class StockRepository {
                 ?: return@withContext kotlin.Result.failure(IOException("No data found for $symbol"))
 
             val companyName = getCompanyName(symbol) ?: symbol
+            val currentPrice = result.meta.regularMarketPrice
+
+            // Get accurate previous close from historical data
+            val quotes = result.indicators.quote.firstOrNull()
+            val closePrices = quotes?.close?.filterNotNull()
+
+            // Use historical data for previous close if available
+            val previousClosePrice = if (!closePrices.isNullOrEmpty() && closePrices.size > 1) {
+                // Use the second-to-last close price as previous close
+                closePrices[closePrices.size - 2]
+            } else if (result.meta.previousClose > 0.001) {
+                // Fall back to meta.previousClose if it seems valid
+                result.meta.previousClose
+            } else {
+                // Last resort fallback if all else fails
+                result.meta.regularMarketPrice * 0.99
+            }
 
             val stock = Stock(
                 symbol = result.meta.symbol,
                 name = companyName,
-                currentPrice = result.meta.regularMarketPrice,
-                previousClose = result.meta.previousClose
+                currentPrice = currentPrice,
+                previousClose = previousClosePrice
             )
 
             kotlin.Result.success(stock)
@@ -60,6 +81,7 @@ class StockRepository {
             "JPM" -> "JPMorgan Chase & Co."
             "NFLX" -> "Netflix Inc."
             "DIS" -> "Walt Disney Co."
+            "SMCI" -> "Super Micro Computer, Inc."
             else -> null
         }
     }

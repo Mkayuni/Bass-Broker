@@ -6,14 +6,19 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.foundation.clickable
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.mkayuni.bassbroker.model.Stock
+import com.mkayuni.bassbroker.model.SoundType
+import com.mkayuni.bassbroker.util.SoundPlayer
 import com.mkayuni.bassbroker.viewmodel.StockViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -24,6 +29,8 @@ fun StockListScreen(viewModel: StockViewModel) {
     val showAddDialog by viewModel.showAddStockDialog.collectAsState()
     val selectedStock by viewModel.selectedStock.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
+    val showAlertConfigDialog by viewModel.showAlertConfigDialog.collectAsState()
+    val selectedAlertConfig by viewModel.selectedAlertConfig.collectAsState()
 
     Scaffold(
         topBar = {
@@ -120,6 +127,22 @@ fun StockListScreen(viewModel: StockViewModel) {
             onRemove = {
                 viewModel.removeStock(selectedStock!!.symbol)
                 viewModel.hideStockDetailDialog()
+            },
+            onSetHighAlert = { viewModel.showHighAlertConfig(it) },
+            onSetLowAlert = { viewModel.showLowAlertConfig(it) }
+        )
+    }
+
+    // Alert Configuration Dialog
+    if (showAlertConfigDialog && selectedAlertConfig != null) {
+        val config = selectedAlertConfig!!
+        AlertConfigDialog(
+            stock = config.first,
+            isHighAlert = config.second,
+            currentThreshold = config.third,
+            onDismiss = { viewModel.hideAlertConfigDialog() },
+            onSave = { threshold, soundType ->
+                viewModel.saveAlertConfig(threshold, soundType)
             }
         )
     }
@@ -216,7 +239,9 @@ fun AddStockDialog(
 fun StockDetailDialog(
     stock: Stock,
     onDismiss: () -> Unit,
-    onRemove: () -> Unit
+    onRemove: () -> Unit,
+    onSetHighAlert: (Stock) -> Unit,
+    onSetLowAlert: (Stock) -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -269,15 +294,41 @@ fun StockDetailDialog(
                     modifier = Modifier.padding(vertical = 8.dp)
                 )
 
-                Text(
-                    "High Alert: ${stock.alertThresholdHigh?.let { "$${String.format("%.2f", it)}" } ?: "Not set"}",
-                    modifier = Modifier.padding(vertical = 2.dp)
-                )
+                // High alert row with button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("High Alert: ${stock.alertThresholdHigh?.let { "$${String.format("%.2f", it)}" } ?: "Not set"}")
 
-                Text(
-                    "Low Alert: ${stock.alertThresholdLow?.let { "$${String.format("%.2f", it)}" } ?: "Not set"}",
-                    modifier = Modifier.padding(vertical = 2.dp)
-                )
+                    Button(
+                        onClick = { onSetHighAlert(stock) },
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) {
+                        Text("Set")
+                    }
+                }
+
+                // Low alert row with button
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Low Alert: ${stock.alertThresholdLow?.let { "$${String.format("%.2f", it)}" } ?: "Not set"}")
+
+                    Button(
+                        onClick = { onSetLowAlert(stock) },
+                        modifier = Modifier.padding(start = 8.dp)
+                    ) {
+                        Text("Set")
+                    }
+                }
 
                 // Add remove button
                 Spacer(modifier = Modifier.height(16.dp))
@@ -296,4 +347,138 @@ fun StockDetailDialog(
             }
         }
     )
+}
+
+@Composable
+fun AlertConfigDialog(
+    stock: Stock,
+    isHighAlert: Boolean,
+    currentThreshold: Double?,
+    onDismiss: () -> Unit,
+    onSave: (Double, SoundType) -> Unit
+) {
+    var threshold by remember { mutableStateOf(currentThreshold?.toString() ?: "") }
+    var selectedSoundType by remember { mutableStateOf<SoundType>(SoundType.PRICE_UP) }
+    val context = LocalContext.current
+    val soundPlayer = remember { SoundPlayer(context) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Set ${if (isHighAlert) "High" else "Low"} Alert for ${stock.symbol}") },
+        text = {
+            Column(modifier = Modifier.padding(8.dp)) {
+                // Threshold input
+                OutlinedTextField(
+                    value = threshold,
+                    onValueChange = {
+                        // Only allow numeric input with decimal point
+                        if (it.isEmpty() || it.matches(Regex("^\\d*\\.?\\d*$"))) {
+                            threshold = it
+                        }
+                    },
+                    label = { Text("Price Threshold") },
+                    prefix = { Text("$") },
+                    singleLine = true,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 8.dp)
+                )
+
+                // Sound selection
+                Text(
+                    "Select Sound Effect",
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.padding(vertical = 8.dp)
+                )
+
+                // Radio buttons for sound types
+                Column {
+                    SoundTypeOption(
+                        name = "🚀 Upward Bass",
+                        soundType = SoundType.PRICE_UP,
+                        isSelected = selectedSoundType == SoundType.PRICE_UP,
+                        onClick = { selectedSoundType = SoundType.PRICE_UP },
+                        onPlaySound = { soundPlayer.playSound(SoundType.PRICE_UP) }
+                    )
+
+                    SoundTypeOption(
+                        name = "📉 Downward Bass",
+                        soundType = SoundType.PRICE_DOWN,
+                        isSelected = selectedSoundType == SoundType.PRICE_DOWN,
+                        onClick = { selectedSoundType = SoundType.PRICE_DOWN },
+                        onPlaySound = { soundPlayer.playSound(SoundType.PRICE_DOWN) }
+                    )
+
+                    SoundTypeOption(
+                        name = "🎵 Stable Bass",
+                        soundType = SoundType.PRICE_STABLE,
+                        isSelected = selectedSoundType == SoundType.PRICE_STABLE,
+                        onClick = { selectedSoundType = SoundType.PRICE_STABLE },
+                        onPlaySound = { soundPlayer.playSound(SoundType.PRICE_STABLE) }
+                    )
+
+                    SoundTypeOption(
+                        name = "🎸 Custom Bass",
+                        soundType = SoundType.CUSTOM,
+                        isSelected = selectedSoundType == SoundType.CUSTOM,
+                        onClick = { selectedSoundType = SoundType.CUSTOM },
+                        onPlaySound = { soundPlayer.playSound(SoundType.CUSTOM) }
+                    )
+                }
+            }
+        },
+        confirmButton = {
+            Button(
+                onClick = {
+                    threshold.toDoubleOrNull()?.let { thresholdValue ->
+                        onSave(thresholdValue, selectedSoundType)
+                    }
+                },
+                enabled = threshold.isNotEmpty() && threshold.toDoubleOrNull() != null
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+}
+
+@Composable
+fun SoundTypeOption(
+    name: String,
+    soundType: SoundType,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    onPlaySound: () -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        RadioButton(
+            selected = isSelected,
+            onClick = onClick
+        )
+
+        Text(
+            text = name,
+            modifier = Modifier
+                .weight(1f)
+                .clickable(onClick = onClick)
+                .padding(start = 8.dp)
+        )
+
+        IconButton(onClick = onPlaySound) {
+            Icon(
+                Icons.Filled.PlayArrow,
+                contentDescription = "Play Sound"
+            )
+        }
+    }
 }

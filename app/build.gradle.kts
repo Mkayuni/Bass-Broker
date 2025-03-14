@@ -58,6 +58,7 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
     implementation("com.squareup.retrofit2:retrofit:2.9.0")
     implementation("com.squareup.retrofit2:converter-gson:2.9.0")
+    implementation("com.jakewharton.threetenabp:threetenabp:1.3.1")
 
     // Coroutines for async operations
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
@@ -77,4 +78,5 @@ dependencies {
 
 // Compose integration with ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
+
 }

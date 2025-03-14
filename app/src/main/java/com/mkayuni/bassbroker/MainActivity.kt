@@ -13,10 +13,14 @@ import com.mkayuni.bassbroker.service.StockMonitorService
 import com.mkayuni.bassbroker.ui.stocks.StockListScreen
 import com.mkayuni.bassbroker.ui.theme.BassBrokerTheme
 import com.mkayuni.bassbroker.viewmodel.StockViewModel
+import com.jakewharton.threetenabp.AndroidThreeTen
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Initialize ThreeTenABP for date/time handling
+        AndroidThreeTen.init(this)
 
         // Start the stock monitoring service
         startService(Intent(this, StockMonitorService::class.java))

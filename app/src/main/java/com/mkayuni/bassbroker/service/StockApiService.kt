@@ -9,7 +9,14 @@ interface StockApiService {
     suspend fun getStockPrice(
         @Path("symbol") symbol: String,
         @Query("interval") interval: String = "1d",
-        @Query("range") range: String = "1d"
+        @Query("range") range: String = "5d"
+    ): StockResponse
+
+    @GET("v8/finance/chart/{symbol}")
+    suspend fun getHistoricalData(
+        @Path("symbol") symbol: String,
+        @Query("interval") interval: String = "1d",
+        @Query("range") range: String = "5d"
     ): StockResponse
 }
 
