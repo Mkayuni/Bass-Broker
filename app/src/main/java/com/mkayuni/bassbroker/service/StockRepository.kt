@@ -8,6 +8,7 @@ import kotlinx.coroutines.withContext
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import java.io.IOException
+import android.util.Log
 
 class StockRepository(private val viewModel: StockViewModel? = null) {
     private val apiService: StockApiService
@@ -23,6 +24,9 @@ class StockRepository(private val viewModel: StockViewModel? = null) {
 
     suspend fun getStockPrice(symbol: String): kotlin.Result<Stock> = withContext(Dispatchers.IO) {
         try {
+            // Log the start of the API call for debugging
+            Log.d("StockRepository", "Getting prices for $symbol")
+
             val response = apiService.getStockPrice(symbol)
 
             if (response.chart.error != null) {
@@ -41,9 +45,15 @@ class StockRepository(private val viewModel: StockViewModel? = null) {
             val quotes = result.indicators.quote.firstOrNull()
             val closePrices = quotes?.close?.filterNotNull()
 
+            // Log the close prices for debugging
+            Log.d("StockRepository", "Close prices for $symbol: ${closePrices?.take(10) ?: "None"}")
+
             // Update price history in ViewModel if available
             if (!closePrices.isNullOrEmpty()) {
+                Log.d("StockRepository", "Updating price history for $symbol with ${closePrices.size} points")
                 viewModel?.updatePriceHistory(symbol, closePrices)
+            } else {
+                Log.w("StockRepository", "No price history available for $symbol")
             }
 
             // Use historical data for previous close if available
@@ -67,6 +77,7 @@ class StockRepository(private val viewModel: StockViewModel? = null) {
 
             kotlin.Result.success(stock)
         } catch (e: Exception) {
+            Log.e("StockRepository", "Error getting stock price for $symbol", e)
             kotlin.Result.failure(e)
         }
     }

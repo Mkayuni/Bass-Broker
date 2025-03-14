@@ -40,7 +40,6 @@ android {
 }
 
 dependencies {
-
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
@@ -74,10 +73,21 @@ dependencies {
     // Material Components
     implementation("com.google.android.material:material:1.10.0")
     implementation("androidx.datastore:datastore-preferences:1.0.0")
+
     // Compose Activity integration
     implementation("androidx.activity:activity-compose:1.8.2")
 
-// Compose integration with ViewModel
+    // Compose integration with ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")
 
+    // TensorFlow Lite for ML
+    implementation("org.tensorflow:tensorflow-lite:2.12.0")
+    implementation("org.tensorflow:tensorflow-lite-support:0.4.3")
+
+    // Apache Commons Math for statistical calculations
+    implementation("org.apache.commons:commons-math3:3.6.1")
+
+    // Additional dependencies for ML
+    implementation("org.tensorflow:tensorflow-lite-metadata:0.4.3")
+    implementation("org.tensorflow:tensorflow-lite-gpu:2.12.0") // Optional GPU acceleration
 }

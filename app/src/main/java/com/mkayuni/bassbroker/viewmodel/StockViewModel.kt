@@ -1,4 +1,3 @@
-// Update existing StockViewModel Class
 package com.mkayuni.bassbroker.viewmodel
 
 import android.app.Application
@@ -20,7 +19,8 @@ import java.util.concurrent.TimeUnit
 import com.mkayuni.bassbroker.util.SoundPlayer
 import com.mkayuni.bassbroker.model.SoundType
 import android.content.Context
-
+import android.util.Log
+import com.mkayuni.bassbroker.service.PricePredictionService
 
 class StockViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -29,7 +29,6 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
     private val marketHoursService = MarketHoursService()
     private val soundPlayer = SoundPlayer(application)
     private val repository = StockRepository(this)
-
 
     // State flows for UI updates
     private val _stocks = MutableStateFlow<List<Stock>>(emptyList())
@@ -70,62 +69,29 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
     private val _priceHistory = MutableStateFlow<Map<String, List<Double>>>(emptyMap())
     val priceHistory: StateFlow<Map<String, List<Double>>> = _priceHistory.asStateFlow()
 
-    fun updatePriceHistory(symbol: String, prices: List<Double>) {
-        _priceHistory.value = _priceHistory.value.toMutableMap().apply {
-            put(symbol, prices)
-        }
-    }
-
     private val _showAlertConfigDialog = MutableStateFlow(false)
     val showAlertConfigDialog: StateFlow<Boolean> = _showAlertConfigDialog.asStateFlow()
 
     private val _selectedAlertConfig = MutableStateFlow<Triple<Stock, Boolean, Double?>?>(null)
     val selectedAlertConfig: StateFlow<Triple<Stock, Boolean, Double?>?> = _selectedAlertConfig.asStateFlow()
 
-    fun showHighAlertConfig(stock: Stock) {
-        _selectedAlertConfig.value = Triple(stock, true, stock.alertThresholdHigh)
-        _showAlertConfigDialog.value = true
-    }
+    private val predictionService = PricePredictionService()
 
-    fun showLowAlertConfig(stock: Stock) {
-        _selectedAlertConfig.value = Triple(stock, false, stock.alertThresholdLow)
-        _showAlertConfigDialog.value = true
-    }
+    private val _predictions = MutableStateFlow<Map<String, PricePredictionService.PredictionResult>>(emptyMap())
+    val predictions: StateFlow<Map<String, PricePredictionService.PredictionResult>> = _predictions.asStateFlow()
 
-    fun hideAlertConfigDialog() {
-        _showAlertConfigDialog.value = false
-        _selectedAlertConfig.value = null
-    }
 
-    fun saveAlertConfig(threshold: Double, soundType: SoundType) {
-        val config = _selectedAlertConfig.value ?: return
-        val stock = config.first
-        val isHighAlert = config.second
-
-        // Update the stock's alert threshold
-        val updatedStocks = _stocks.value.toMutableList()
-        val stockIndex = updatedStocks.indexOfFirst { it.symbol == stock.symbol }
-
-        if (stockIndex >= 0) {
-            val updatedStock = updatedStocks[stockIndex].copy()
-            if (isHighAlert) {
-                updatedStock.alertThresholdHigh = threshold
-            } else {
-                updatedStock.alertThresholdLow = threshold
-            }
-            updatedStocks[stockIndex] = updatedStock
-            _stocks.value = updatedStocks
+    fun updatePriceHistory(symbol: String, prices: List<Double>) {
+        Log.d("StockViewModel", "Updating price history for $symbol with ${prices.size} data points")
+        _priceHistory.value = _priceHistory.value.toMutableMap().apply {
+            put(symbol, prices)
         }
 
-        // Save the sound selection
-        val currentSoundMap = _alertSounds.value.toMutableMap()
-        val stockSoundMap = currentSoundMap[stock.symbol]?.toMutableMap() ?: mutableMapOf()
-        stockSoundMap[isHighAlert] = soundType
-        currentSoundMap[stock.symbol] = stockSoundMap
-        _alertSounds.value = currentSoundMap
-
-        // Hide the dialog
-        hideAlertConfigDialog()
+        // Debug log the price history after update
+        Log.d("StockViewModel", "Price history now contains ${_priceHistory.value.size} stocks")
+        _priceHistory.value.forEach { (sym, priceList) ->
+            Log.d("StockViewModel", "  $sym: ${priceList.size} prices, first few: ${priceList.take(3)}")
+        }
     }
 
     private val dataUpdateRunnable = object : Runnable {
@@ -177,6 +143,47 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun predictStockPrices(symbol: String) {
+        viewModelScope.launch {
+            val history = _priceHistory.value[symbol] ?: return@launch
+            if (history.isEmpty()) return@launch
+
+            val prediction = predictionService.predictPrices(history)
+
+            _predictions.value = _predictions.value.toMutableMap().apply {
+                put(symbol, prediction)
+            }
+
+            // Play sound based on prediction confidence and direction
+            playPredictionSound(prediction)
+        }
+    }
+
+    private fun playPredictionSound(prediction: PricePredictionService.PredictionResult) {
+        if (prediction.predictedPrices.isEmpty()) return
+
+        val soundType = when {
+            prediction.confidence > 0.7f && prediction.direction == PricePredictionService.PredictionDirection.STRONGLY_UP ||
+                    prediction.confidence > 0.7f && prediction.direction == PricePredictionService.PredictionDirection.UP ->
+                SoundType.PREDICT_HIGH_UP
+
+            prediction.confidence > 0.7f && prediction.direction == PricePredictionService.PredictionDirection.STRONGLY_DOWN ||
+                    prediction.confidence > 0.7f && prediction.direction == PricePredictionService.PredictionDirection.DOWN ->
+                SoundType.PREDICT_HIGH_DOWN
+
+            prediction.confidence > 0.4f && prediction.direction == PricePredictionService.PredictionDirection.UP ->
+                SoundType.PREDICT_MEDIUM_UP
+
+            prediction.confidence > 0.4f && prediction.direction == PricePredictionService.PredictionDirection.DOWN ->
+                SoundType.PREDICT_MEDIUM_DOWN
+
+            else ->
+                SoundType.PREDICT_LOW
+        }
+
+        soundPlayer.playSound(soundType)
+    }
+
     private fun saveAlertPreferences() {
         val context = getApplication<Application>()
         val prefs = context.getSharedPreferences("stock_alerts", Context.MODE_PRIVATE)
@@ -209,7 +216,7 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
                 val stocksList = mutableListOf<Stock>()
 
                 for (symbol in initialSymbols) {
-                    stockRepository.getStockPrice(symbol).onSuccess { stock ->
+                    repository.getStockPrice(symbol).onSuccess { stock ->
                         stocksList.add(stock)
                         // Initialize historical prices
                         historicalPrices[symbol] = mutableListOf(stock.currentPrice)
@@ -234,7 +241,7 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
                 val updatedStocks = mutableListOf<Stock>()
 
                 for (symbol in currentSymbols) {
-                    stockRepository.getStockPrice(symbol).onSuccess { stock ->
+                    repository.getStockPrice(symbol).onSuccess { stock ->
                         updatedStocks.add(stock)
 
                         // Update historical prices
@@ -315,7 +322,7 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                stockRepository.getStockPrice(symbol).onSuccess { newStock ->
+                repository.getStockPrice(symbol).onSuccess { newStock ->
                     val currentStocks = _stocks.value.toMutableList()
                     currentStocks.add(newStock)
                     _stocks.value = currentStocks
@@ -358,6 +365,52 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
 
     fun hideStockDetailDialog() {
         _selectedStock.value = null
+    }
+
+    fun showHighAlertConfig(stock: Stock) {
+        _selectedAlertConfig.value = Triple(stock, true, stock.alertThresholdHigh)
+        _showAlertConfigDialog.value = true
+    }
+
+    fun showLowAlertConfig(stock: Stock) {
+        _selectedAlertConfig.value = Triple(stock, false, stock.alertThresholdLow)
+        _showAlertConfigDialog.value = false
+    }
+
+    fun hideAlertConfigDialog() {
+        _showAlertConfigDialog.value = false
+        _selectedAlertConfig.value = null
+    }
+
+    fun saveAlertConfig(threshold: Double, soundType: SoundType) {
+        val config = _selectedAlertConfig.value ?: return
+        val stock = config.first
+        val isHighAlert = config.second
+
+        // Update the stock's alert threshold
+        val updatedStocks = _stocks.value.toMutableList()
+        val stockIndex = updatedStocks.indexOfFirst { it.symbol == stock.symbol }
+
+        if (stockIndex >= 0) {
+            val updatedStock = updatedStocks[stockIndex].copy()
+            if (isHighAlert) {
+                updatedStock.alertThresholdHigh = threshold
+            } else {
+                updatedStock.alertThresholdLow = threshold
+            }
+            updatedStocks[stockIndex] = updatedStock
+            _stocks.value = updatedStocks
+        }
+
+        // Save the sound selection
+        val currentSoundMap = _alertSounds.value.toMutableMap()
+        val stockSoundMap = currentSoundMap[stock.symbol]?.toMutableMap() ?: mutableMapOf()
+        stockSoundMap[isHighAlert] = soundType
+        currentSoundMap[stock.symbol] = stockSoundMap
+        _alertSounds.value = currentSoundMap
+
+        // Hide the dialog
+        hideAlertConfigDialog()
     }
 
     fun clearError() {

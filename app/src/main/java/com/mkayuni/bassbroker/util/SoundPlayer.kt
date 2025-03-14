@@ -22,6 +22,13 @@ class SoundPlayer(private val context: Context) {
             SoundType.PRICE_DOWN -> R.raw.bass_down
             SoundType.PRICE_STABLE -> R.raw.bass_stable
             SoundType.CUSTOM -> R.raw.bass_up // Default to up sound for custom
+
+            // Map prediction sounds to existing sounds until you create custom ones
+            SoundType.PREDICT_HIGH_UP -> R.raw.bass_up // Strong upward prediction
+            SoundType.PREDICT_HIGH_DOWN -> R.raw.bass_down // Strong downward prediction
+            SoundType.PREDICT_MEDIUM_UP -> R.raw.bass_up // Medium confidence upward
+            SoundType.PREDICT_MEDIUM_DOWN -> R.raw.bass_down // Medium confidence downward
+            SoundType.PREDICT_LOW -> R.raw.bass_stable // Low confidence prediction
         }
 
         // Create and play the sound

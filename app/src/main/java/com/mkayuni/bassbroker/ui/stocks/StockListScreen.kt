@@ -1,5 +1,6 @@
 package com.mkayuni.bassbroker.ui.stocks
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -20,6 +21,7 @@ import com.mkayuni.bassbroker.model.Stock
 import com.mkayuni.bassbroker.model.SoundType
 import com.mkayuni.bassbroker.util.SoundPlayer
 import com.mkayuni.bassbroker.viewmodel.StockViewModel
+import com.mkayuni.bassbroker.service.PricePredictionService
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -123,18 +125,32 @@ fun StockListScreen(viewModel: StockViewModel) {
     if (selectedStock != null) {
         val stock = selectedStock!!
         val prices = viewModel.priceHistory.collectAsState().value[stock.symbol] ?: emptyList()
+        val prediction = viewModel.predictions.collectAsState().value[stock.symbol]  // Add this line
+        var showChartDialog by remember(stock.symbol) { mutableStateOf(false) }
 
         StockDetailDialog(
             stock = stock,
-            priceHistory = prices,  // Add this line
+            priceHistory = prices,
+            prediction = prediction,  // Add this line
             onDismiss = { viewModel.hideStockDetailDialog() },
             onRemove = {
                 viewModel.removeStock(stock.symbol)
                 viewModel.hideStockDetailDialog()
             },
             onSetHighAlert = { viewModel.showHighAlertConfig(it) },
-            onSetLowAlert = { viewModel.showLowAlertConfig(it) }
+            onSetLowAlert = { viewModel.showLowAlertConfig(it) },
+            onViewChart = { showChartDialog = true },
+            onPredict = { viewModel.predictStockPrices(stock.symbol) }  // Add this line
         )
+
+        // Show chart dialog when requested
+        if (showChartDialog) {
+            StockChartDialog(
+                stock = stock,
+                priceHistory = prices,
+                onDismiss = { showChartDialog = false }
+            )
+        }
     }
 
     // Alert Configuration Dialog
@@ -158,8 +174,9 @@ fun StockItem(
     onClick: () -> Unit
 ) {
     Surface(
-        onClick = onClick,
-        modifier = Modifier.fillMaxWidth()
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick)
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
@@ -243,10 +260,13 @@ fun AddStockDialog(
 fun StockDetailDialog(
     stock: Stock,
     priceHistory: List<Double>,
+    prediction: PricePredictionService.PredictionResult? = null,
     onDismiss: () -> Unit,
     onRemove: () -> Unit,
     onSetHighAlert: (Stock) -> Unit,
-    onSetLowAlert: (Stock) -> Unit
+    onSetLowAlert: (Stock) -> Unit,
+    onViewChart: (Stock) -> Unit,
+    onPredict: (Stock) -> Unit
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -257,7 +277,19 @@ fun StockDetailDialog(
                 if (priceHistory.isNotEmpty()) {
                     Text("Price History", style = MaterialTheme.typography.titleMedium)
                     Spacer(modifier = Modifier.height(8.dp))
-                    StockPriceChart(priceHistory = priceHistory)
+
+                    // No need to get prediction data here - use the one passed as parameter
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(120.dp)
+                    ) {
+                        SimpleStockChart(
+                            priceHistory = priceHistory,
+                            predictions = prediction?.predictedPrices,
+                            confidence = prediction?.confidence ?: 0f
+                        )
+                    }
                     Spacer(modifier = Modifier.height(16.dp))
                 }
                 Row(
@@ -298,12 +330,12 @@ fun StockDetailDialog(
                     )
                 }
 
-                HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
 
                 Text(
                     "Configure Alerts",
                     style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(vertical = 8.dp)
+                    modifier = Modifier.padding(vertical = 4.dp)
                 )
 
                 // High alert row with button
@@ -318,7 +350,7 @@ fun StockDetailDialog(
 
                     Button(
                         onClick = { onSetHighAlert(stock) },
-                        modifier = Modifier.padding(start = 8.dp)
+                        modifier = Modifier.padding(start = 4.dp)
                     ) {
                         Text("Set")
                     }
@@ -336,14 +368,33 @@ fun StockDetailDialog(
 
                     Button(
                         onClick = { onSetLowAlert(stock) },
-                        modifier = Modifier.padding(start = 8.dp)
+                        modifier = Modifier.padding(start = 4.dp)
                     ) {
                         Text("Set")
                     }
                 }
 
-                // Add remove button
-                Spacer(modifier = Modifier.height(16.dp))
+                // Add a "View Chart" button above the remove button
+                Button(
+                    onClick = { onViewChart(stock) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("View Chart")
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+                // Add prediction button
+                Button(
+                    onClick = { onPredict(stock) },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text("Predict Price Trend")
+                }
+
+                Spacer(modifier = Modifier.height(4.dp))
+
+// Add remove button
                 Button(
                     onClick = onRemove,
                     colors = ButtonDefaults.buttonColors(containerColor = Color.Red),
@@ -493,4 +544,10 @@ fun SoundTypeOption(
             )
         }
     }
+}
+
+@Composable
+fun StockPriceChart(priceHistory: List<Double>) {
+    // Use the simpler pure Compose implementation
+    SimpleStockChart(priceHistory = priceHistory)
 }
