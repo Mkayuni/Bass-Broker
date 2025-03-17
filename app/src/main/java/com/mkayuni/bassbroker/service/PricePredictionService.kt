@@ -1,35 +1,89 @@
 package com.mkayuni.bassbroker.service
 
+import android.content.Context
+import android.util.Log
 import kotlin.math.abs
 
-class PricePredictionService {
+class PricePredictionService(private val context: Context) {
+
+    private val tensorFlowService = TensorFlowPredictionService(context)
+    private val TAG = "PricePrediction"
 
     /**
-     * Predicts future prices based on historical data using simple statistical models
-     * @param historicalPrices List of historical prices, with most recent price last
-     * @param daysToPredict Number of days to predict into the future
-     * @return PredictionResult containing predicted prices and confidence level
+     * Predicts stock prices using either TensorFlow or statistical methods
      */
-    fun predictPrices(historicalPrices: List<Double>, daysToPredict: Int = 5): PredictionResult {
+    fun predictPrices(
+        symbol: String,
+        historicalPrices: List<Double>,
+        useTensorFlow: Boolean = true
+    ): PredictionResult {
+        Log.d(TAG, "Prediction requested for $symbol - Using TensorFlow: $useTensorFlow")
+
+        // Try TensorFlow prediction first if requested
+        if (useTensorFlow) {
+            try {
+                Log.d(TAG, "Attempting TensorFlow prediction...")
+                val tfResult = tensorFlowService.predictPrices(symbol, historicalPrices)
+
+                if (tfResult != null) {
+                    Log.d(TAG, "TensorFlow prediction SUCCESS for $symbol")
+                    Log.d(TAG, "Neural network predicted prices: ${tfResult.predictedPrices}")
+                    Log.d(TAG, "Neural network confidence: ${tfResult.confidence}")
+
+                    // For comparison, also calculate statistical prediction but don't return it
+                    val statResult = predictPricesStatistical(historicalPrices)
+                    Log.d(TAG, "Statistical predicted prices (not used): ${statResult.predictedPrices}")
+                    Log.d(TAG, "Statistical confidence (not used): ${statResult.confidence}")
+
+                    return PredictionResult(
+                        predictedPrices = tfResult.predictedPrices,
+                        confidence = tfResult.confidence,
+                        modelType = "neural"
+                    )
+                } else {
+                    Log.w(TAG, "TensorFlow prediction returned null for $symbol")
+                }
+            } catch (e: Exception) {
+                Log.e(TAG, "TensorFlow prediction failed, falling back to statistical", e)
+            }
+        }
+
+        // Fall back to statistical prediction
+        Log.d(TAG, "Using statistical prediction for $symbol")
+        val result = predictPricesStatistical(historicalPrices)
+        Log.d(TAG, "Statistical predicted prices: ${result.predictedPrices}")
+        Log.d(TAG, "Statistical confidence: ${result.confidence}")
+
+        return result.copy(modelType = "statistical") // Add model type for tracking
+    }
+
+    /**
+     * Statistical prediction method
+     */
+    private fun predictPricesStatistical(historicalPrices: List<Double>): PredictionResult {
         if (historicalPrices.size < 5) {
-            return PredictionResult(emptyList(), 0.3f)
+            Log.d(TAG, "Not enough price history for statistical prediction")
+            return PredictionResult(emptyList(), 0.3f, "statistical")
         }
 
         // Get recent trend (more weight to recent prices)
         val recentPrices = historicalPrices.takeLast(10)
         val trend = calculateWeightedTrend(recentPrices)
+        Log.d(TAG, "Statistical weighted trend: $trend")
 
         // Get volatility
         val volatility = calculateVolatility(recentPrices)
+        Log.d(TAG, "Statistical volatility: $volatility")
 
         // Calculate momentum
         val momentum = calculateMomentum(recentPrices)
+        Log.d(TAG, "Statistical momentum: $momentum")
 
         // Calculate predictions
         val predictions = mutableListOf<Double>()
-        var lastPrice = historicalPrices.last()
+        var lastPrice = historicalPrices.first() // Use the most recent price (at index 0)
 
-        for (i in 1..daysToPredict) {
+        for (i in 1..5) {
             // Simple prediction model combining trend with momentum and decay
             val dayFactor = 1.0 / (1 + 0.1 * i) // Decay factor - confidence decreases over time
             val predictedChange = (trend * dayFactor) + (momentum * (1 - dayFactor))
@@ -41,13 +95,12 @@ class PricePredictionService {
         // Calculate confidence (0.0-1.0) based on volatility and consistency
         val consistency = calculateConsistency(recentPrices)
         val confidence = calculateConfidence(volatility, consistency)
+        Log.d(TAG, "Statistical consistency: $consistency, final confidence: $confidence")
 
-        return PredictionResult(predictions, confidence)
+        return PredictionResult(predictions, confidence, "statistical")
     }
 
-    /**
-     * Calculate weighted trend where recent days have higher weight
-     */
+    // Statistical calculation methods
     private fun calculateWeightedTrend(prices: List<Double>): Double {
         if (prices.size < 2) return 0.0
 
@@ -64,9 +117,6 @@ class PricePredictionService {
         return if (weightSum > 0) weightedSum / weightSum else 0.0
     }
 
-    /**
-     * Calculate price volatility
-     */
     private fun calculateVolatility(prices: List<Double>): Double {
         if (prices.size < 2) return 0.0
 
@@ -77,9 +127,6 @@ class PricePredictionService {
         return changes.average()
     }
 
-    /**
-     * Calculate price momentum
-     */
     private fun calculateMomentum(prices: List<Double>): Double {
         if (prices.size < 5) return 0.0
 
@@ -90,9 +137,6 @@ class PricePredictionService {
         return (shortTerm * 0.7) + (longTerm * 0.3)
     }
 
-    /**
-     * Measure consistency of price movements
-     */
     private fun calculateConsistency(prices: List<Double>): Double {
         if (prices.size < 3) return 0.5
 
@@ -112,11 +156,7 @@ class PricePredictionService {
         return if (totalCount > 0) sameDirectionCount.toDouble() / totalCount else 0.5
     }
 
-    /**
-     * Calculate overall prediction confidence
-     */
     private fun calculateConfidence(volatility: Double, consistency: Double): Float {
-        // High volatility = low confidence, high consistency = high confidence
         val volatilityFactor = (1.0 - (volatility * 10.0)).coerceIn(0.2, 0.9)
         val confidenceValue = (volatilityFactor * 0.5) + (consistency * 0.5)
         return confidenceValue.toFloat().coerceIn(0.1f, 0.9f)
@@ -127,7 +167,8 @@ class PricePredictionService {
      */
     data class PredictionResult(
         val predictedPrices: List<Double>,
-        val confidence: Float // 0.0-1.0 scale
+        val confidence: Float, // 0.0-1.0 scale
+        val modelType: String = "unknown" // Add model type for tracking
     ) {
         val direction: PredictionDirection
             get() {
@@ -146,6 +187,7 @@ class PricePredictionService {
                 }
             }
     }
+
     /**
      * Direction of price prediction
      */

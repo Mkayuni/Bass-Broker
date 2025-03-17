@@ -18,3 +18,12 @@ data class Stock(
             0.0 // Default to 0% if previous close is zero
         }
 }
+
+data class MarketIndices(
+    val sp500Price: Double,
+    val sp500Change: Double,
+    val nasdaqPrice: Double,
+    val nasdaqChange: Double,
+    val vixPrice: Double,
+    val vixChange: Double
+)

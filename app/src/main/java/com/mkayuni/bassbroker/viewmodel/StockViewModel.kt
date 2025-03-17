@@ -21,6 +21,7 @@ import com.mkayuni.bassbroker.model.SoundType
 import android.content.Context
 import android.util.Log
 import com.mkayuni.bassbroker.service.PricePredictionService
+import com.mkayuni.bassbroker.model.MarketIndices
 
 class StockViewModel(application: Application) : AndroidViewModel(application) {
 
@@ -75,10 +76,16 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedAlertConfig = MutableStateFlow<Triple<Stock, Boolean, Double?>?>(null)
     val selectedAlertConfig: StateFlow<Triple<Stock, Boolean, Double?>?> = _selectedAlertConfig.asStateFlow()
 
-    private val predictionService = PricePredictionService()
+    private val predictionService = PricePredictionService(getApplication())
 
     private val _predictions = MutableStateFlow<Map<String, PricePredictionService.PredictionResult>>(emptyMap())
     val predictions: StateFlow<Map<String, PricePredictionService.PredictionResult>> = _predictions.asStateFlow()
+
+    private val _useTensorFlow = MutableStateFlow(true)
+    val useTensorFlow: StateFlow<Boolean> = _useTensorFlow.asStateFlow()
+
+    private val _marketIndices = MutableStateFlow<MarketIndices?>(null)
+    val marketIndices: StateFlow<MarketIndices?> = _marketIndices.asStateFlow()
 
 
     fun updatePriceHistory(symbol: String, prices: List<Double>) {
@@ -116,6 +123,7 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
     init {
         loadInitialStocks()
         checkMarketStatus()
+        fetchMarketIndices()
 
         // Start periodic checks
         handler.post(marketCheckRunnable)
@@ -143,18 +151,20 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun predictStockPrices(symbol: String) {
+    fun predictStockPrices(symbol: String, useTF: Boolean = true) {
         viewModelScope.launch {
+            _useTensorFlow.value = useTF
+
             val history = _priceHistory.value[symbol] ?: return@launch
             if (history.isEmpty()) return@launch
 
-            val prediction = predictionService.predictPrices(history)
+            val prediction = predictionService.predictPrices(symbol, history, useTF)
 
             _predictions.value = _predictions.value.toMutableMap().apply {
                 put(symbol, prediction)
             }
 
-            // Play sound based on prediction confidence and direction
+            // Play sound based on prediction
             playPredictionSound(prediction)
         }
     }
@@ -256,6 +266,10 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
 
                 _stocks.value = updatedStocks
                 _errorMessage.value = null
+
+                // Fetch market indices data
+                fetchMarketIndices()
+
             } catch (e: Exception) {
                 _errorMessage.value = "Failed to refresh stocks: ${e.localizedMessage}"
             } finally {
@@ -308,6 +322,24 @@ class StockViewModel(application: Application) : AndroidViewModel(application) {
                         soundPlayer.playNewsSentimentSound(sentiment)
                     }
                 }
+            }
+        }
+    }
+
+    fun fetchMarketIndices() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                repository.getMarketIndices().onSuccess { indices ->
+                    _marketIndices.value = indices
+                    _errorMessage.value = null
+                }.onFailure { error ->
+                    _errorMessage.value = "Failed to fetch market indices: ${error.localizedMessage}"
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = "Error fetching market indices: ${e.localizedMessage}"
+            } finally {
+                _isLoading.value = false
             }
         }
     }

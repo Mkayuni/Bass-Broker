@@ -3,32 +3,34 @@ package com.mkayuni.bassbroker.ui.stocks
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathEffect
-import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.*
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 /**
- * A simple price chart implemented in pure Compose without any external libraries.
- * This can be used as a temporary replacement until the MPAndroidChart issues are resolved.
+ * Enhanced stock chart with clear price history and prediction visualization
  */
 @Composable
-fun SimpleStockChart(
+fun EnhancedStockChart(
     priceHistory: List<Double>,
     predictions: List<Double>? = null,
     confidence: Float = 0f,
+    isNeuralNetwork: Boolean = false,
     modifier: Modifier = Modifier
 ) {
+    // Handle empty data case
     if (priceHistory.isEmpty()) {
         Box(
             modifier = modifier
@@ -42,317 +44,446 @@ fun SimpleStockChart(
         return
     }
 
-    // Combine historical data with predictions for min/max calculation if predictions exist
-    val allData = if (!predictions.isNullOrEmpty()) priceHistory + predictions else priceHistory
-    val min = allData.minOrNull() ?: 0.0
-    val max = allData.maxOrNull() ?: 0.0
+    // Calculate data ranges with padding
+    val allData = if (predictions.isNullOrEmpty()) priceHistory else priceHistory + predictions
+    val minValue = (allData.minOrNull() ?: 0.0)
+    val maxValue = (allData.maxOrNull() ?: 0.0)
+
+    // Add padding to the range to prevent drawing at edges
+    val valueRange = maxValue - minValue
+    val paddedMin = minValue - (valueRange * 0.05)
+    val paddedMax = maxValue + (valueRange * 0.05)
+
+    // Colors
+    val historyLineColor = Color(0xFF1E88E5)  // Blue
+    val positiveGreen = Color(0xFF4CAF50)
+    val negativeRed = Color(0xFFE53935)
+    val gridLineColor = Color(0x22000000)
+
+    // Determine prediction direction for appropriate coloring
+    val predictionDirection = if (predictions != null && predictions.isNotEmpty()) {
+        val lastHistory = priceHistory.first()
+        val lastPrediction = predictions.last()
+        if (lastPrediction > lastHistory) "up" else if (lastPrediction < lastHistory) "down" else "neutral"
+    } else {
+        "neutral"
+    }
+
+    // Set prediction color based on direction
+    val predictionLineColor = when (predictionDirection) {
+        "up" -> positiveGreen
+        "down" -> negativeRed
+        else -> Color.Gray
+    }
 
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(8.dp)
+            .padding(16.dp)
     ) {
-        Text(
-            text = if (predictions != null) "${priceHistory.size} days of price history with prediction"
-            else "${priceHistory.size} days of price history",
-            style = MaterialTheme.typography.bodyMedium,
-            modifier = Modifier.align(Alignment.CenterHorizontally)
-        )
-
-        Spacer(modifier = Modifier.height(8.dp))
-
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(200.dp)
-                .background(Color.LightGray.copy(alpha = 0.1f))
+        // Chart header with legend
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            Canvas(
-                modifier = Modifier.fillMaxSize()
-            ) {
-                val width = size.width
-                val height = size.height
-                val range = (max - min).toFloat()
-
-                // Calculate step based on available space for history
-                val historyWidth = if (predictions != null) width * 0.7f else width
-                val step = historyWidth / (priceHistory.size - 1)
-
-                // Draw the previous close line
-                if (priceHistory.size > 1) {
-                    val prevCloseY = height - (((priceHistory[1] - min) / (max - min)) * height).toFloat()
-                    drawLine(
-                        color = Color(0xFFFFA500), // Orange
-                        start = Offset(0f, prevCloseY),
-                        end = Offset(width, prevCloseY),
-                        strokeWidth = 1.dp.toPx(),
-                        pathEffect = PathEffect.dashPathEffect(
-                            floatArrayOf(10f, 10f)
-                        )
-                    )
-                }
-
-                // Draw the price line
-                val path = Path()
-                val fillPath = Path()
-
-                // Move to the first point
-                val firstX = 0f
-                val firstY = height - (((priceHistory[0] - min) / (max - min)) * height).toFloat()
-                path.moveTo(firstX, firstY)
-                fillPath.moveTo(firstX, height)
-                fillPath.lineTo(firstX, firstY)
-
-                // Draw the line through all points
-                for (i in 1 until priceHistory.size) {
-                    val x = i * step
-                    val y = height - (((priceHistory[i] - min) / (max - min)) * height).toFloat()
-                    path.lineTo(x, y)
-                    fillPath.lineTo(x, y)
-                }
-
-                // Complete the fill path
-                fillPath.lineTo(priceHistory.size * step, height)
-                fillPath.close()
-
-                // Draw the fill
-                drawPath(
-                    path = fillPath,
-                    color = Color.Blue.copy(alpha = 0.2f)
-                )
-
-                // Draw the line
-                drawPath(
-                    path = path,
-                    color = Color.Blue,
-                    style = Stroke(width = 2.dp.toPx(), cap = StrokeCap.Round)
-                )
-
-                // Draw circles at important points
-                val circleRadius = 4.dp.toPx()
-
-                // First point
-                drawCircle(
-                    color = Color.Blue,
-                    radius = circleRadius,
-                    center = Offset(firstX, firstY)
-                )
-
-                // Last point of history
-                val lastHistoryX = (priceHistory.size - 1) * step
-                val lastHistoryY = height - (((priceHistory.last() - min) / (max - min)) * height).toFloat()
-                drawCircle(
-                    color = Color.Blue,
-                    radius = circleRadius,
-                    center = Offset(lastHistoryX, lastHistoryY)
-                )
-
-                // Draw predictions if available
-                if (!predictions.isNullOrEmpty()) {
-                    // Prediction line
-                    val predictionPath = Path()
-                    predictionPath.moveTo(lastHistoryX, lastHistoryY)
-
-                    // Step size for prediction - use remaining space
-                    val predictionWidth = width - lastHistoryX
-                    val predictionStep = predictionWidth / predictions.size
-
-                    // Draw prediction line
-                    for (i in predictions.indices) {
-                        val x = lastHistoryX + ((i + 1) * predictionStep)
-                        val y = height - (((predictions[i] - min) / (max - min)) * height).toFloat()
-                        predictionPath.lineTo(x, y)
-                    }
-
-                    // Draw prediction line (dashed)
-                    drawPath(
-                        path = predictionPath,
-                        color = Color.Red,
-                        style = Stroke(
-                            width = 2.dp.toPx(),
-                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(10f, 5f)),
-                            cap = StrokeCap.Round
-                        )
-                    )
-
-                    // Draw confidence interval if confidence is provided
-                    if (confidence > 0) {
-                        val confidencePath = Path()
-
-                        // Upper bound
-                        confidencePath.moveTo(lastHistoryX, lastHistoryY)
-                        for (i in predictions.indices) {
-                            val x = lastHistoryX + ((i + 1) * predictionStep)
-                            val prediction = predictions[i]
-                            // Wider interval for lower confidence
-                            val interval = prediction * (0.02 + (1.0 - confidence) * 0.08)
-                            val upperY = height - (((prediction + interval - min) / (max - min)) * height).toFloat()
-                            confidencePath.lineTo(x, upperY)
-                        }
-
-                        // Connect to lower bound
-                        for (i in predictions.indices.reversed()) {
-                            val x = lastHistoryX + ((i + 1) * predictionStep)
-                            val prediction = predictions[i]
-                            val interval = prediction * (0.02 + (1.0 - confidence) * 0.08)
-                            val lowerY = height - (((prediction - interval - min) / (max - min)) * height).toFloat()
-                            confidencePath.lineTo(x, lowerY)
-                        }
-
-                        confidencePath.close()
-
-                        // Draw confidence interval
-                        drawPath(
-                            path = confidencePath,
-                            color = Color.Red.copy(alpha = 0.15f)
-                        )
-                    }
-
-                    // Draw circle at last prediction point
-                    val lastPredictionX = lastHistoryX + (predictions.size * predictionStep)
-                    val lastPredictionY = height - (((predictions.last() - min) / (max - min)) * height).toFloat()
-                    drawCircle(
-                        color = Color.Red,
-                        radius = circleRadius,
-                        center = Offset(lastPredictionX, lastPredictionY)
-                    )
-                }
-            }
-
-            // Add price range labels
             Text(
-                text = "$${String.format("%.2f", max)}",
-                fontSize = 10.sp,
-                color = Color.Gray,
-                modifier = Modifier
-                    .align(Alignment.TopStart)
-                    .padding(start = 4.dp, top = 4.dp)
+                text = "${priceHistory.size} Day Price History",
+                style = MaterialTheme.typography.titleSmall
             )
 
-            Text(
-                text = "$${String.format("%.2f", min)}",
-                fontSize = 10.sp,
-                color = Color.Gray,
-                modifier = Modifier
-                    .align(Alignment.BottomStart)
-                    .padding(start = 4.dp, bottom = 4.dp)
-            )
-
-            // Add prediction confidence indicator if available
-            if (confidence > 0) {
-                Text(
-                    text = "Confidence: ${(confidence * 100).toInt()}%",
-                    fontSize = 10.sp,
-                    color = Color.Red,
-                    modifier = Modifier
-                        .align(Alignment.TopEnd)
-                        .padding(end = 4.dp, top = 4.dp)
-                )
-            }
-
-            // Add day markers
+            // Legend
             Row(
-                modifier = Modifier
-                    .align(Alignment.BottomCenter)
-                    .fillMaxWidth()
-                    .padding(bottom = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "${priceHistory.size}d",
-                    fontSize = 10.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Start,
-                    modifier = Modifier.padding(start = 4.dp)
-                )
-
-                if (priceHistory.size > 3) {
+                // History
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.padding(end = 8.dp)
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(8.dp)
+                            .background(historyLineColor, CircleShape)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = "Mid",
-                        fontSize = 10.sp,
-                        color = Color.Gray,
-                        textAlign = TextAlign.Center
+                        "History",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = Color.DarkGray
                     )
                 }
 
-                Text(
-                    text = "Now",
-                    fontSize = 10.sp,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
-
-                if (predictions != null) {
-                    Text(
-                        text = "Prediction",
-                        fontSize = 10.sp,
-                        color = Color.Red,
-                        textAlign = TextAlign.End,
-                        modifier = Modifier.padding(end = 4.dp)
-                    )
-                } else {
-                    Spacer(modifier = Modifier.width(4.dp))
+                // Prediction
+                if (predictions != null && predictions.isNotEmpty()) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(predictionLineColor, CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            "${if (isNeuralNetwork) "Neural Net" else "Statistical"} (${(confidence * 100).toInt()}%)",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = Color.DarkGray
+                        )
+                    }
                 }
             }
         }
 
-        // Price info at the bottom
         Spacer(modifier = Modifier.height(8.dp))
 
-        if (priceHistory.size > 1) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
+        // Main chart area
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(200.dp)
+                .shadow(1.dp, RoundedCornerShape(12.dp)),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = Color.White
+            )
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 12.dp, vertical = 8.dp)
             ) {
-                Text(
-                    text = "Current: $${String.format("%.2f", priceHistory[0])}",
-                    style = MaterialTheme.typography.bodySmall
-                )
-
-                Text(
-                    text = "Previous: $${String.format("%.2f", priceHistory[1])}",
-                    style = MaterialTheme.typography.bodySmall
-                )
-            }
-
-            Spacer(modifier = Modifier.height(4.dp))
-
-            val change = priceHistory[0] - priceHistory[1]
-            val percentChange = if (priceHistory[1] > 0) (change / priceHistory[1] * 100) else 0.0
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.Center
-            ) {
-                val changeColor = if (change >= 0) Color.Green else Color.Red
-
-                Text(
-                    text = "Change: ${String.format("%+.2f", change)} (${String.format("%.2f", percentChange)}%)",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = changeColor
-                )
-            }
-
-            // Add prediction info if available
-            if (!predictions.isNullOrEmpty()) {
-                Spacer(modifier = Modifier.height(8.dp))
-
-                val predictedChange = predictions.last() - priceHistory[0]
-                val predictedPercentChange = (predictedChange / priceHistory[0] * 100)
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.Center
+                // The actual chart canvas
+                Canvas(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .drawBehind {
+                            // Draw subtle grid lines (horizontal)
+                            val gridCount = 3
+                            for (i in 0..gridCount) {
+                                val y = size.height * i / gridCount
+                                drawLine(
+                                    color = gridLineColor,
+                                    start = Offset(0f, y),
+                                    end = Offset(size.width, y),
+                                    strokeWidth = 1.dp.toPx(),
+                                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(4f, 4f))
+                                )
+                            }
+                        }
                 ) {
-                    val predictionColor = if (predictedChange >= 0) Color.Green else Color.Red
+                    val width = size.width
+                    val height = size.height
+                    val valueRange = paddedMax - paddedMin
 
-                    Text(
-                        text = "Prediction: ${String.format("%+.2f", predictedChange)} (${String.format("%.2f", predictedPercentChange)}%)",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = predictionColor
+                    // Calculate chart areas
+                    val historyWidth = if (predictions != null) width * 0.7f else width
+                    val historyStep = historyWidth / (priceHistory.size - 1).coerceAtLeast(1)
+
+                    // Function to calculate Y position from price
+                    val getYPosition: (Double) -> Float = { price ->
+                        height - ((price - paddedMin) / valueRange * height).toFloat()
+                    }
+
+                    // Draw history line
+                    val historyPath = Path()
+                    val historyFillPath = Path()
+
+                    // Start paths
+                    val firstX = historyWidth
+                    val firstY = getYPosition(priceHistory.first())
+                    historyPath.moveTo(firstX, firstY)
+                    historyFillPath.moveTo(firstX, height)
+                    historyFillPath.lineTo(firstX, firstY)
+
+                    // Draw history points in REVERSE order (newest to oldest)
+                    for (i in 1 until priceHistory.size) {
+                        val x = historyWidth - (i * historyStep)
+                        val y = getYPosition(priceHistory[i])
+                        historyPath.lineTo(x, y)
+                        historyFillPath.lineTo(x, y)
+                    }
+
+                    // Complete fill path
+                    val lastHistoryX = 0f  // Leftmost point is oldest history point
+                    historyFillPath.lineTo(lastHistoryX, height)
+                    historyFillPath.close()
+
+                    // Draw history fill
+                    drawPath(
+                        path = historyFillPath,
+                        brush = Brush.verticalGradient(
+                            colors = listOf(
+                                historyLineColor.copy(alpha = 0.2f),
+                                historyLineColor.copy(alpha = 0f)
+                            )
+                        )
                     )
+
+                    // Draw history line
+                    drawPath(
+                        path = historyPath,
+                        color = historyLineColor,
+                        style = Stroke(
+                            width = 2.5f,
+                            cap = StrokeCap.Round,
+                            join = StrokeJoin.Round
+                        )
+                    )
+
+                    // Draw prediction if available
+                    if (!predictions.isNullOrEmpty()) {
+                        val predictionPath = Path()
+                        val predictionFillPath = Path()
+
+                        // Start from current price point
+                        predictionPath.moveTo(firstX, firstY)
+                        predictionFillPath.moveTo(firstX, height)
+                        predictionFillPath.lineTo(firstX, firstY)
+
+                        // Calculate prediction parameters
+                        val predictionWidth = width - historyWidth
+                        val predictionStep = predictionWidth / predictions.size
+
+                        // Draw prediction line
+                        for (i in predictions.indices) {
+                            val x = firstX + ((i + 1) * predictionStep)
+                            val y = getYPosition(predictions[i])
+                            predictionPath.lineTo(x, y)
+                            predictionFillPath.lineTo(x, y)
+                        }
+
+                        // Complete prediction fill path
+                        val lastPredictionX = firstX + (predictions.size * predictionStep)
+                        val lastPredictionY = getYPosition(predictions.last())
+                        predictionFillPath.lineTo(lastPredictionX, height)
+                        predictionFillPath.close()
+
+                        // Draw prediction fill
+                        drawPath(
+                            path = predictionFillPath,
+                            brush = Brush.verticalGradient(
+                                colors = listOf(
+                                    predictionLineColor.copy(alpha = 0.2f),
+                                    predictionLineColor.copy(alpha = 0f)
+                                )
+                            )
+                        )
+
+                        // Draw confidence interval if confidence > 0
+                        if (confidence > 0) {
+                            val confPath = Path()
+                            val intervalFactor = 0.02 + (1.0 - confidence) * 0.08
+
+                            // Start from current price
+                            confPath.moveTo(firstX, firstY)
+
+                            // Upper bound
+                            for (i in predictions.indices) {
+                                val x = firstX + ((i + 1) * predictionStep)
+                                val prediction = predictions[i]
+                                val interval = prediction * intervalFactor
+                                val upperY = getYPosition(prediction + interval)
+                                confPath.lineTo(x, upperY)
+                            }
+
+                            // Connect to lower bound (reversed)
+                            for (i in predictions.indices.reversed()) {
+                                val x = firstX + ((i + 1) * predictionStep)
+                                val prediction = predictions[i]
+                                val interval = prediction * intervalFactor
+                                val lowerY = getYPosition(prediction - interval)
+                                confPath.lineTo(x, lowerY)
+                            }
+
+                            confPath.close()
+
+                            // Draw confidence interval
+                            drawPath(
+                                path = confPath,
+                                color = predictionLineColor.copy(alpha = 0.15f)
+                            )
+                        }
+
+                        // Draw prediction line
+                        drawPath(
+                            path = predictionPath,
+                            color = predictionLineColor,
+                            style = Stroke(
+                                width = 2.5f,
+                                cap = StrokeCap.Round,
+                                join = StrokeJoin.Round,
+                                pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 3f))
+                            )
+                        )
+
+                        // Draw important points
+                        // Current price point
+                        drawCircle(
+                            color = Color.White,
+                            radius = 5.dp.toPx(),
+                            center = Offset(firstX, firstY)
+                        )
+                        drawCircle(
+                            color = historyLineColor,
+                            radius = 3.dp.toPx(),
+                            center = Offset(firstX, firstY)
+                        )
+
+                        // Final prediction point
+                        drawCircle(
+                            color = Color.White,
+                            radius = 5.dp.toPx(),
+                            center = Offset(lastPredictionX, lastPredictionY)
+                        )
+                        drawCircle(
+                            color = predictionLineColor,
+                            radius = 3.dp.toPx(),
+                            center = Offset(lastPredictionX, lastPredictionY)
+                        )
+
+                        // PREDICTION PRICE LABEL - Position inside chart bounds
+                        // Calculate position to ensure it stays within the chart boundaries
+                        val labelWidth = 50.dp.toPx()
+                        val labelHeight = 18.dp.toPx()
+
+                        // Calculate X position to keep label fully inside chart
+                        val predLabelX = lastPredictionX.coerceIn(
+                            labelWidth / 2 + 5.dp.toPx(),
+                            width - labelWidth / 2 - 5.dp.toPx()
+                        )
+
+                        // Always place label at top with padding
+                        val predLabelY = 10.dp.toPx()
+
+                        drawRoundRect(
+                            color = predictionLineColor,
+                            topLeft = Offset(predLabelX - labelWidth / 2, predLabelY),
+                            size = Size(labelWidth, labelHeight),
+                            cornerRadius = CornerRadius(4.dp.toPx())
+                        )
+
+                        // Draw price text
+                        drawContext.canvas.nativeCanvas.drawText(
+                            "${String.format("%.2f", predictions.last())}",
+                            predLabelX,
+                            predLabelY + 12.dp.toPx(),
+                            android.graphics.Paint().apply {
+                                color = android.graphics.Color.WHITE
+                                textAlign = android.graphics.Paint.Align.CENTER
+                                textSize = 11.sp.toPx()
+                                isFakeBoldText = true
+                            }
+                        )
+
+                        // Add dotted line connecting label to point
+                        drawLine(
+                            color = predictionLineColor,
+                            start = Offset(lastPredictionX, 28.dp.toPx()),
+                            end = Offset(lastPredictionX, lastPredictionY - 5.dp.toPx()),
+                            strokeWidth = 1.5f,
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f, 3f))
+                        )
+
+                        // CURRENT PRICE LABEL - Position inside chart bounds
+                        // Calculate position to ensure it stays within the chart boundaries
+                        val curLabelX = firstX.coerceIn(
+                            labelWidth / 2 + 5.dp.toPx(),
+                            width - labelWidth / 2 - 5.dp.toPx()
+                        )
+
+                        drawRoundRect(
+                            color = historyLineColor,
+                            topLeft = Offset(curLabelX - labelWidth / 2, predLabelY),
+                            size = Size(labelWidth, labelHeight),
+                            cornerRadius = CornerRadius(4.dp.toPx())
+                        )
+
+                        // Draw price text
+                        drawContext.canvas.nativeCanvas.drawText(
+                            "${String.format("%.2f", priceHistory.first())}",
+                            curLabelX,
+                            predLabelY + 12.dp.toPx(),
+                            android.graphics.Paint().apply {
+                                color = android.graphics.Color.WHITE
+                                textAlign = android.graphics.Paint.Align.CENTER
+                                textSize = 11.sp.toPx()
+                                isFakeBoldText = true
+                            }
+                        )
+
+                        // Add dotted line connecting label to point
+                        drawLine(
+                            color = historyLineColor,
+                            start = Offset(firstX, 28.dp.toPx()),
+                            end = Offset(firstX, firstY - 5.dp.toPx()),
+                            strokeWidth = 1.5f,
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f, 3f))
+                        )
+                    } else {
+                        // Just show current price if no prediction
+                        val labelWidth = 50.dp.toPx()
+                        val labelHeight = 18.dp.toPx()
+                        val predLabelY = 10.dp.toPx()
+
+                        // Calculate X position to keep label fully inside chart
+                        val curLabelX = firstX.coerceIn(
+                            labelWidth / 2 + 5.dp.toPx(),
+                            width - labelWidth / 2 - 5.dp.toPx()
+                        )
+
+                        drawRoundRect(
+                            color = historyLineColor,
+                            topLeft = Offset(curLabelX - labelWidth / 2, predLabelY),
+                            size = Size(labelWidth, labelHeight),
+                            cornerRadius = CornerRadius(4.dp.toPx())
+                        )
+
+                        // Draw current price text
+                        drawContext.canvas.nativeCanvas.drawText(
+                            "${String.format("%.2f", priceHistory.first())}",
+                            curLabelX,
+                            predLabelY + 12.dp.toPx(),
+                            android.graphics.Paint().apply {
+                                color = android.graphics.Color.WHITE
+                                textAlign = android.graphics.Paint.Align.CENTER
+                                textSize = 11.sp.toPx()
+                                isFakeBoldText = true
+                            }
+                        )
+
+                        // Add dotted line connecting label to point
+                        drawLine(
+                            color = historyLineColor,
+                            start = Offset(curLabelX, predLabelY + labelHeight),
+                            end = Offset(firstX, firstY - 5.dp.toPx()),
+                            strokeWidth = 1.5f,
+                            pathEffect = PathEffect.dashPathEffect(floatArrayOf(3f, 3f))
+                        )
+                    }
                 }
             }
         }
     }
+}
+
+/**
+ * Backward compatibility function that calls EnhancedStockChart
+ */
+@Composable
+fun SimpleStockChart(
+    priceHistory: List<Double>,
+    predictions: List<Double>? = null,
+    confidence: Float = 0f,
+    isNeuralNetwork: Boolean = false,
+    modifier: Modifier = Modifier
+) {
+    // Call the enhanced version with the same parameters
+    EnhancedStockChart(
+        priceHistory = priceHistory,
+        predictions = predictions,
+        confidence = confidence,
+        isNeuralNetwork = isNeuralNetwork,
+        modifier = modifier
+    )
 }

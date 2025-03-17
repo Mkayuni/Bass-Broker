@@ -3,7 +3,6 @@ package com.mkayuni.bassbroker.ui.stocks
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
@@ -33,7 +32,7 @@ fun StockChartDialog(
                         .fillMaxWidth()
                         .height(250.dp)
                 ) {
-                    SimpleStockChart(priceHistory)
+                    EnhancedStockChart(priceHistory = priceHistory)
                 }
 
                 // Price info
