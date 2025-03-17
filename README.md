@@ -1,4 +1,4 @@
-# Bass Broker 🎵📈
+# Bass Broker
 
 <div align="center">
   
@@ -12,9 +12,11 @@
 
 ## Overview
 
-Bass Broker transforms how you monitor the stock market by translating price movements into immersive bass sounds. This innovative Android application allows you to passively track your investments through audio cues, keeping you informed while you focus on other tasks.
+Bass Broker is my passion project that brings together my three loves: software development, finance, and bass guitar. I created this Android app to help me monitor stock movements through bass sounds, turning market data into audio cues that I can recognize while working on other things. It's a practical tool that lets me stay connected to my investments without constantly checking charts, while also giving me a creative outlet to apply my programming skills to real problems that matter to me.
 
-## ✨ Key Features
+**Note:** This project is still a work in progress. Between balancing my thesis, school coursework, and teaching responsibilities, I haven't had as much time as I'd like to dedicate to it. I'm continuously improving it when time permits.
+
+## Key Features
 
 - **Audio Stock Monitoring**: Distinctive bass sounds indicate market events
 - **Real-time Tracking**: Live data from Yahoo Finance API
@@ -23,23 +25,46 @@ Bass Broker transforms how you monitor the stock market by translating price mov
 - **Predictive Analytics**: Statistical forecasting with confidence intervals
 - **Background Processing**: Continuous monitoring even when the app is closed
 
-##  Predictive Analytics Engine
+## TensorFlow Prediction Engine
 
-Bass Broker incorporates an advanced prediction system to forecast potential price movements:
+Bass Broker incorporates a dual-approach prediction system to forecast potential price movements:
 
 ```kotlin
-fun predictPrices(historicalPrices: List<Double>, daysToPredict: Int = 5): PredictionResult {
-    // Get recent trend (weighted toward recent prices)
-    val trend = calculateWeightedTrend(recentPrices)
+fun predictPrices(
+    symbol: String,
+    historicalPrices: List<Double>,
+    useTensorFlow: Boolean = true
+): PredictionResult {
+    // Try TensorFlow model first, fall back to statistical if needed
+    if (useTensorFlow) {
+        try {
+            val tfResult = tensorFlowService.predictPrices(symbol, historicalPrices)
+            if (tfResult != null) {
+                return PredictionResult(
+                    predictedPrices = tfResult.predictedPrices,
+                    confidence = tfResult.confidence,
+                    modelType = "neural"
+                )
+            }
+        } catch (e: Exception) {
+            // Fall back to statistical prediction
+        }
+    }
     
-    // Calculate volatility and momentum
-    val volatility = calculateVolatility(recentPrices)
-    val momentum = calculateMomentum(recentPrices)
-    
-    // Generate predictions with confidence intervals
-    // ...
+    // Statistical fallback uses trend, volatility, and momentum analysis
+    return predictPricesStatistical(historicalPrices)
 }
 ```
+
+The app uses a custom-built TensorFlow Lite model trained specifically for a limited set of stocks I personally follow (AAPL, MSFT, GOOGL, NVDA, META, TSLA, etc.). This model analyzes:
+
+- Technical indicators (RSI, MACD)
+- Market correlations (S&P 500, VIX)
+- Volatility regime detection
+- Multi-year trend analysis
+- Cyclical market patterns
+
+This is strictly a personal hobby project to help me observe trends and make entry/exit decisions based on 35-day forecasts. The statistical fallback model provides additional context when the neural model isn't available.
 
 ## Technologies & Architecture
 
@@ -169,7 +194,7 @@ com.mkayuni.bassbroker/
 - [ ] Social sharing features
 - [ ] Watchlist categorization
 
-## 🙏 Acknowledgements
+## Acknowledgements
 
 - [Yahoo Finance API](https://www.yahoofinanceapi.com/) for market data
 - [Jetpack Compose](https://developer.android.com/jetpack/compose) for modern UI
