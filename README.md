@@ -2,7 +2,7 @@
 
 <div align="center">
   
-  ![Bass Broker Logo](app/src/main/res/mipmap-xxxhdpi/ic_launcher.png)
+  ![Bass Broker Logo](https://github.com/user-attachments/assets/8d16e9ed-2a4d-4df4-9843-35d44e3c20ab)
   
   [![Kotlin](https://img.shields.io/badge/Kotlin-1.8.10-blue.svg)](https://kotlinlang.org)
   [![Compose](https://img.shields.io/badge/Jetpack%20Compose-Latest-green.svg)](https://developer.android.com/jetpack/compose)
